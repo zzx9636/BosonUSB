@@ -1,5 +1,21 @@
 #include "CameraStreamer.hpp"
-  
+CameraStreamer::CameraStreamer(vector<string> video_port)
+{
+    // initilize parameters
+
+    this->VideoOutput = RAW16;
+    this->SensorType = Boson_640;
+    this->ZoomBool = false;
+    this->RecordBool = true;
+    this->camera_ports = video_port;
+    this->camera_count = camera_ports.size();
+    this->compression_params.push_back(cv::IMWRITE_PXM_BINARY);
+    this->SaveDir = "./Images";
+
+    startMultiCapture();
+}
+
+
 CameraStreamer::CameraStreamer(vector<string> video_port, int VideoMode=RAW16, int SensorType = Boson_640, 
     bool zoom_enable=false, bool record_enable=true, string folder_name="./Images")
 {
@@ -24,16 +40,31 @@ CameraStreamer::~CameraStreamer()
  
 void CameraStreamer::captureFrame(int index)
 {
-    cv::VideoCapture *capture = camera_capture[index];
-    while (true){
-        cv::Mat frame;
-        //Grab frame from camera capture
-        (*capture) >> frame;
-        //Put frame to the queue
-        frame_queue[index]->push(frame);
-        //relase frame resource
-        frame.release();
+
+    int * camera_handel_cur = this->camera_handel[index];
+    struct v4l2_buffer * bufferinfo = this->bufferPtrList[index];
+    cv::Mat* thermal16 = this->thermal16List[index];
+    while(true){
+        if(ioctl(*camera_handel_cur, VIDIOC_QBUF, &bufferinfo) < 0){
+            perror(RED "VIDIOC_QBUF" WHT);
+            exit(1);
+        }
+
+        // The buffer's waiting in the outgoing queue.
+        if(ioctl(*camera_handel_cur, VIDIOC_DQBUF, &bufferinfo) < 0) {
+            perror(RED "VIDIOC_QBUF" WHT);
+            exit(1);
+        }
+
+        frame_queue[index]->push(*thermal16);
+
+        if( cv::waitKey(1) == 'q' ) { // 0x20 (SPACE) ; need a small delay !! we use this to also add an exit option
+			printf(WHT ">>> " RED "'q'" WHT " key pressed. Quitting !\n");
+			break;
+		}
+
     }
+
 }
  
 void CameraStreamer::startMultiCapture()
@@ -146,7 +177,15 @@ void CameraStreamer::startMultiCapture()
         //Put camera handel and buffer to the vector
         camera_handel.push_back(cur_handel);
         bufferPtrList.push_back(bufferinfo);
-        
+        buffer_start_list.push_back(buffer_start);
+
+        // Declarations for RAW16 representation
+        // Will be used in case we are reading RAW16 format
+	    // Boson320 , Boson 640
+        cv::Mat* thermal16 = new cv::Mat(height, width, CV_16U, buffer_start);
+
+        thermal16List.push_back(thermal16);
+                
         //Make thread instance
         t = new thread(&CameraStreamer::captureFrame, this, i);
         

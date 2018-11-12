@@ -3,31 +3,24 @@
  
 void main()
 {
- 
-    //IP camera URLs
-    vector<string> capture_source = {
-        "rtsp://192.168.2.100/profile2/media.smp",
-        "rtsp://192.168.0.100/profile2/media.smp"
-    };
- 
-    //USB Camera indices
-    vector<int> capture_index = { 0, 1 };
+     //USB Camera indices
+    vector<string> capture_index = { "/dev/video0" };
  
     //Highgui window titles
     vector<string> label;
-    for (int i = 0; i < capture_source.size(); i++)
+    for (int i = 0; i < capture_index.size(); i++)
     {
-        string title = "CCTV " + to_string(i);
+        string title = "CAM_" + to_string(i);
         label.push_back(title);
     }
  
     //Make an instance of CameraStreamer
-    CameraStreamer cam(capture_source);
+    CameraStreamer cam(capture_index);
  
     while (cv::waitKey(20) != 27)
     {
         //Retrieve frames from each camera capture thread
-        for (int i = 0; i < capture_source.size(); i++)
+        for (int i = 0; i < capture_index.size(); i++)
         {
             cv::Mat frame;
             //Pop frame from queue and check if the frame is valid

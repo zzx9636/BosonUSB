@@ -5,7 +5,7 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <concurrent_queue.h>
+#include <tbb/concurrent_queue.h>
 #include <opencv2/videoio.hpp>
 #include <stdio.h>
 #include <fcntl.h>               // open, O_RDWR
@@ -54,6 +54,7 @@ public:
     vector<thread*> camera_thread;
     
     //Constructor for USB Camera capture
+    CameraStreamer(vector<string> video_port);
     CameraStreamer(vector<string> video_port, int VideoMode, int SensorType, bool zoom_enable, bool record_enable, string folder_name);
     //Destructor for releasing resource(s)
     ~CameraStreamer();
@@ -77,8 +78,11 @@ private:
     int width, height;
 
     //input image buffer
+    std::vector<void *> buffer_start_list;
     std::vector<struct v4l2_buffer *> bufferPtrList;
-	
+
+    //opencv input Buffer
+    std::vector<cv::Mat*> thermal16List;
     //initialize and start the camera capturing process(es)
     void startMultiCapture();
     //release all camera capture resource(s)
