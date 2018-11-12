@@ -1,3 +1,0 @@
-/home/zixu/Documents/Git_Repo/BosonUSB/build/CMakeFiles/edit_cache.dir
-/home/zixu/Documents/Git_Repo/BosonUSB/build/CMakeFiles/rebuild_cache.dir
-/home/zixu/Documents/Git_Repo/BosonUSB/build/CMakeFiles/BosonUSB.dir
