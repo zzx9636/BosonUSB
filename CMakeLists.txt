@@ -7,8 +7,8 @@ ENDIF()
 
 MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall  -O3 -march=native ")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall   -O3 -march=native")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall   -O3 -march=native ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall    -O3 -march=native")
 
 # Check C++11 or C++0x support
 include(CheckCXXCompilerFlag)
@@ -28,21 +28,27 @@ endif()
 
 find_package(Threads REQUIRED)
 
-include_directories( ${MY_SOURCE_DIR}/include 
-${TBB_INCLUDE})
+include_directories( ${PROJECT_SOURCE_DIR}/include 
+${TBB_INCLUDE}
+${OpenCV_INCLUDE_DIRS})
 
 find_package( OpenCV REQUIRED)
 
 add_library(${PROJECT_NAME} SHARED
 src/CameraStreamer.cpp
+src/cvMatContainer.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
 ${TBB_LIBRARY_RELEASE}
 ${CMAKE_THREAD_LIBS_INIT}
+-ltbb
 )
 
 add_executable(test src/main.cpp)
-target_link_libraries(test ${PROJECT_NAME})
+target_link_libraries(test ${PROJECT_NAME} ${OpenCV_LIBS}
+${TBB_LIBRARY_RELEASE}
+${CMAKE_THREAD_LIBS_INIT}
+-ltbb)
 

@@ -1,4 +1,5 @@
 #include "CameraStreamer.hpp"
+
 CameraStreamer::CameraStreamer(vector<string> video_port)
 {
     // initilize parameters
@@ -9,6 +10,7 @@ CameraStreamer::CameraStreamer(vector<string> video_port)
     this->RecordBool = true;
     this->camera_ports = video_port;
     this->camera_count = camera_ports.size();
+    cout<<"Total "<<camera_count<<" camera found"<<endl;
     this->compression_params.push_back(cv::IMWRITE_PXM_BINARY);
     this->SaveDir = "./Images";
 
@@ -27,6 +29,7 @@ CameraStreamer::CameraStreamer(vector<string> video_port, int VideoMode=RAW16, i
     this->RecordBool = record_enable;
     this->camera_ports = video_port;
     this->camera_count = camera_ports.size();
+    cout<<"Total "<<camera_count<<" camera found"<<endl;
     this->compression_params.push_back(cv::IMWRITE_PXM_BINARY);
     this->SaveDir = folder_name;
 
@@ -40,30 +43,61 @@ CameraStreamer::~CameraStreamer()
  
 void CameraStreamer::captureFrame(int index)
 {
-
     int * camera_handel_cur = this->camera_handel[index];
     struct v4l2_buffer * bufferinfo = this->bufferPtrList[index];
     cv::Mat* thermal16 = this->thermal16List[index];
-    while(true){
-        if(ioctl(*camera_handel_cur, VIDIOC_QBUF, &bufferinfo) < 0){
+    cv::Mat* thermal16_linear = this->thermal16linearList[index];
+    
+    /*
+    cout<<"Started cam_"<<index<<" thread at "<<t<<endl;
+    cout<<"thermal16 "<<thermal16<<endl;
+    cout<<"bufferinfo "<<bufferinfo<<endl;  
+    */
+
+    cvMatContainer* img2queue = NULL;
+
+    unsigned int camera_clock, camera_frame, FFC_mode;  
+    
+    while(!break_out){
+        // The buffer's waiting in the incoming queue.
+        if(ioctl(*camera_handel_cur, VIDIOC_QBUF, bufferinfo) < 0){
             perror(RED "VIDIOC_QBUF" WHT);
             exit(1);
         }
-
         // The buffer's waiting in the outgoing queue.
-        if(ioctl(*camera_handel_cur, VIDIOC_DQBUF, &bufferinfo) < 0) {
+        if(ioctl(*camera_handel_cur, VIDIOC_DQBUF, bufferinfo) < 0) {
             perror(RED "VIDIOC_QBUF" WHT);
             exit(1);
         }
+        if ( this->VideoOutput==RAW16 ) {
+			AGC_Basic_Linear(*thermal16, *thermal16_linear, height, width, camera_frame, camera_clock, FFC_mode);
+            /*
+            //print fps
+            int t_prev = last_frame_time_stamp[index];
+            last_frame_time_stamp[index]=camera_clock;
+            double fps = 1000000.0/(camera_clock-t_prev);
+            cout<<"Camera "<<index<<" running at "<<fps<<" fps"<<endl;
+            */
 
-        frame_queue[index]->push(*thermal16);
+            /* show images
+            cv::imshow(camera_ports[index], *thermal16_linear);
+            char key = cv::waitKey(1);
+            if( key == 'q' ) { // 0x20 (SPACE) ; need a small delay !! we use this to also add an exit option
+                printf(WHT ">>> " RED "'q'" WHT " key pressed. Quitting !\n");
+                break_out = true;
+		    }
+            */
 
-        if( cv::waitKey(1) == 'q' ) { // 0x20 (SPACE) ; need a small delay !! we use this to also add an exit option
-			printf(WHT ">>> " RED "'q'" WHT " key pressed. Quitting !\n");
-			break;
-		}
-
+            // push image to output queue
+            if( FFC_mode == 3){
+                img_index_list[index]++;
+                t_system = clock();
+                img2queue = new cvMatContainer(*thermal16_linear, img_index_list[index], camera_clock, int(t_system), camera_frame);
+                (frame_queue[index])->push(img2queue);
+            }
+        }
     }
+    
 
 }
  
@@ -108,24 +142,28 @@ void CameraStreamer::startMultiCapture()
 	bufrequest.memory = V4L2_MEMORY_MMAP;
 	bufrequest.count = 1; 
 
-    struct v4l2_capability* cur_cap;
-    thread *t;
-    tbb::concurrent_queue<cv::Mat> *q;
+    struct v4l2_capability cur_cap;
+    thread * t = NULL;
+    tbb::concurrent_queue<cvMatContainer*>* q = NULL;
+    int * cur_handel = NULL;
+    struct v4l2_buffer* bufferinfo =NULL;
+    
     for (int i = 0; i < camera_count; i++)
     {
-        int * cur_handel = new int;
+        cur_handel = new int;
+        *cur_handel = open((camera_ports[i]).c_str(), O_RDWR);
         //open device
-        if((*cur_handel = open((camera_ports[i]).c_str(), O_RDWR)) < 0){
+        if((*cur_handel) < 0){
 		    perror(RED "Error : OPEN. Invalid Video Device" WHT "\n");
 		    exit(1);
 	    } 
-        
+
         // Check VideoCapture mode is available
-        if(ioctl(*cur_handel, VIDIOC_QUERYCAP, cur_cap) < 0){
+        if(ioctl(*cur_handel, VIDIOC_QUERYCAP, &cur_cap) < 0){
             perror(RED "ERROR : VIDIOC_QUERYCAP. Video Capture is not available" WHT "\n");
             exit(1);
         }
-        if(!(cur_cap->capabilities & V4L2_CAP_VIDEO_CAPTURE)){
+        if(!(cur_cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)){
             fprintf(stderr, RED "The device does not handle single-planar video capture." WHT "\n");
             exit(1);
         }
@@ -147,8 +185,7 @@ void CameraStreamer::startMultiCapture()
             exit(1);
         }
 
-        struct v4l2_buffer * bufferinfo;
-        memset(bufferinfo, 0, sizeof(bufferinfo));
+        bufferinfo = (struct v4l2_buffer*)malloc(sizeof(struct v4l2_buffer));
         bufferinfo->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         bufferinfo->memory = V4L2_MEMORY_MMAP;
         bufferinfo->index = 0;
@@ -183,32 +220,106 @@ void CameraStreamer::startMultiCapture()
         // Will be used in case we are reading RAW16 format
 	    // Boson320 , Boson 640
         cv::Mat* thermal16 = new cv::Mat(height, width, CV_16U, buffer_start);
-
+        cv::Mat* thermal16_linear = new cv::Mat(height,width, CV_8U, 1);
         thermal16List.push_back(thermal16);
-                
+        thermal16linearList.push_back(thermal16_linear);
+        /*
+        cout<<"cam_"<<i<<endl;
+        cout<<"thermal16 "<<thermal16<<endl;
+        cout<<"bufferinfo "<<bufferinfo<<endl;        
+        */
+        cur_handel = NULL;
+        bufferinfo =NULL;
+        img_index_list.push_back(0);
+    }
+
+    for(int i=0; i<camera_count; i++)
+    {
         //Make thread instance
         t = new thread(&CameraStreamer::captureFrame, this, i);
-        
         //Put thread to the vector
         camera_thread.push_back(t);
-        
         //Make a queue instance
-        q = new tbb::concurrent_queue<cv::Mat>;
-        
+        q = new tbb::concurrent_queue<cvMatContainer*>;
         //Put queue to the vector
         frame_queue.push_back(q);
+        t = NULL;
+        q = NULL;
     }
 }
  
+bool CameraStreamer::stream_stopped()
+{
+    return this->break_out;
+}
 void CameraStreamer::stopMultiCapture()
 {
-    cv::VideoCapture *cap;
+    int *camera_handel_cur;
+    struct v4l2_buffer * bufferinfo;
     for (int i = 0; i < camera_count; i++) {
-        cap = camera_capture[i];
-        if (cap->isOpened()){
-        //Relase VideoCapture resource
-        cap->release();
-        cout << "Capture " << i << " released" << endl;
+        camera_handel_cur = camera_handel[i];
+        bufferinfo = bufferPtrList[i];
+        
+        if( ioctl(*camera_handel_cur, VIDIOC_STREAMOFF, &(bufferinfo->type)) < 0 ){
+            perror(RED "VIDIOC_STREAMOFF" WHT);
+            exit(1);
+	    }
+
+        close(*camera_handel_cur);
+        delete thermal16List[i];
+        thermal16List[i]=NULL;
+        delete camera_handel[i];
+        camera_handel[i]=NULL;
+        delete bufferPtrList[i];
+        bufferPtrList[i]=NULL;
+        printf(WHT ">>> Shut down the camera" YEL "%i" WHT "\n", i);
+    }
+}
+
+// AGC Sample ONE: Linear from min to max.
+// Input is a MATRIX (height x width) of 16bits. (OpenCV mat)
+// Output is a MATRIX (height x width) of 8 bits (OpenCV mat)
+void CameraStreamer::AGC_Basic_Linear(cv::Mat input_16, cv::Mat output_8, int height, 
+    int width, unsigned int &frame, unsigned int &clock_cam, unsigned int &ffc_status) {
+    int i, j;  // aux variables
+
+    // auxiliary variables for AGC calcultion
+    unsigned int max1=0;         // 16 bits
+    unsigned int min1=0xFFFF;    // 16 bits
+    unsigned int value1, value2, value3, value4;
+
+    // RUN a super basic AGC
+    for (i=0; i<height; i++) {
+        for (j=0; j<width; j++) {
+                        if(i==0 && j <=3)
+                                continue;
+            value1 =  input_16.at<uchar>(i,j*2+1) & 0XFF ;  // High Byte
+            value2 =  input_16.at<uchar>(i,j*2) & 0xFF  ;    // Low Byte
+            value3 = ( value1 << 8) + value2;
+            if ( value3 <= min1 ) {
+                min1 = value3;
+            }
+            if ( value3 >= max1 ) {
+                max1 = value3;
+            }
         }
     }
+    for (int i=0; i<height; i++) {
+        for (int j=0; j<width; j++) {
+                        if(i==0 && j <= 3)
+                                continue;
+            value1 =  input_16.at<uchar>(i,j*2+1) & 0XFF ;  // High Byte
+            value2 =  input_16.at<uchar>(i,j*2) & 0xFF  ;    // Low Byte
+            value3 = ( value1 << 8) + value2;
+            value4 = ( ( 255 * ( value3 - min1) ) ) / (max1-min1)   ;
+            output_8.at<uchar>(i,j)= (uchar)(value4&0xFF);
+        }
+    }
+        //unsigned int frame, clock_cam, ffc_status;
+        frame = input_16.at<ushort>(0,0);
+        clock_cam = (input_16.at<ushort>(0,2) << 16) + input_16.at<ushort>(0,1);
+        ffc_status = input_16.at<ushort>(0,3);
+        int global_frame_no = clock_cam;
+        
+        //return global_frame_no;
 }

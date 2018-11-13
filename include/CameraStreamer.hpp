@@ -17,6 +17,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <linux/videodev2.h>
+#include <time.h>
+
+#include <cvMatContainer.hpp>
  
 using namespace std;
 
@@ -49,7 +52,7 @@ public:
     //this holds OpenCV VideoCapture pointers
     vector<cv::VideoCapture*> camera_capture;
     //this holds queue(s) which hold images from each camera
-    vector<tbb::concurrent_queue<cv::Mat>*> frame_queue;
+    std::vector<tbb::concurrent_queue<cvMatContainer*>*> frame_queue;
     //this holds thread(s) which run the camera capture process
     vector<thread*> camera_thread;
     
@@ -58,6 +61,8 @@ public:
     CameraStreamer(vector<string> video_port, int VideoMode, int SensorType, bool zoom_enable, bool record_enable, string folder_name);
     //Destructor for releasing resource(s)
     ~CameraStreamer();
+    bool stream_stopped();
+    void AGC_Basic_Linear(cv::Mat input_16, cv::Mat output_8, int height, int width, unsigned int &frame, unsigned int &clock_cam, unsigned int &ffc_status); 
  
 private:
     int camera_count;
@@ -65,9 +70,12 @@ private:
     int SensorType;
     bool RecordBool;
     bool ZoomBool;
-
-    //camera handel pointers
-    vector<int*> camera_handel;
+    bool break_out = false; // boolean to stop camera
+    
+    //variable used to store image and time_stamp
+    clock_t t_system;
+    vector<int> img_index_list;
+    
     //folder to save images
     string SaveDir;
 
@@ -77,12 +85,16 @@ private:
     //image parameters
     int width, height;
 
+    //camera handel pointers
+    vector<int*> camera_handel;
     //input image buffer
     std::vector<void *> buffer_start_list;
     std::vector<struct v4l2_buffer *> bufferPtrList;
 
     //opencv input Buffer
     std::vector<cv::Mat*> thermal16List;
+    std::vector<cv::Mat*> thermal16linearList;
+
     //initialize and start the camera capturing process(es)
     void startMultiCapture();
     //release all camera capture resource(s)
