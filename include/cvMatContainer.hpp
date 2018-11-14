@@ -15,6 +15,8 @@ class cvMatContainer
 {
     public:
         //constructor
+        cvMatContainer(cv::Mat & input, int index, int time_stamp_camera, int time_stamp_buffer, int frame, std::vector<int> IMWRITE_PARAM);
+
         cvMatContainer(cv::Mat & input, int index, int time_stamp_camera, int time_stamp_buffer, int frame);
         
         cvMatContainer(cv::Mat & input);
@@ -32,12 +34,15 @@ class cvMatContainer
 
         cv::Mat getImg() const;
 
+        bool saveImg(string path) const;
+
     private:
         cv::Mat img;
         int index;
         int frame_camera;
         int time_stamp_camera;
         int time_stamp_buffer;
+        std::vector<int> compression_params;
 };
 
 

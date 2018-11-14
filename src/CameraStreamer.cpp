@@ -92,7 +92,7 @@ void CameraStreamer::captureFrame(int index)
             if( FFC_mode == 3){
                 img_index_list[index]++;
                 t_system = clock();
-                img2queue = new cvMatContainer(*thermal16_linear, img_index_list[index], camera_clock, int(t_system), camera_frame);
+                img2queue = new cvMatContainer(*thermal16, img_index_list[index], camera_clock, int(t_system), camera_frame);
                 (frame_queue[index])->push(img2queue);
             }
         }
@@ -319,7 +319,4 @@ void CameraStreamer::AGC_Basic_Linear(cv::Mat input_16, cv::Mat output_8, int he
         frame = input_16.at<ushort>(0,0);
         clock_cam = (input_16.at<ushort>(0,2) << 16) + input_16.at<ushort>(0,1);
         ffc_status = input_16.at<ushort>(0,3);
-        int global_frame_no = clock_cam;
-        
-        //return global_frame_no;
 }

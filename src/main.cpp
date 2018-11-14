@@ -1,12 +1,26 @@
 #include "CameraStreamer.hpp"
 #include "cvMatContainer.hpp"
 #include "opencv2/highgui.hpp"
- 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <cmath>
+
+#define MAX_DT 33334
+#define NUM_CAM 2 
 int main()
 {
-     //USB Camera indices
+    //USB Camera indices
     vector<string> capture_index = { "/dev/video1", "/dev/video2" };
     bool show_img = false;
+    const char * folder_name_0 = "./Cam_0/";
+    const char * folder_name_1 = "./Cam_1/";
+    char filename[60];
+    unsigned long frame=1;
+    
+    if(capture_index.size()!=NUM_CAM){
+        cout<<"Number of Cameras should be "<<NUM_CAM<<endl;
+        return 0;
+    }
  
     //Highgui window titles
     vector<string> label;
@@ -30,20 +44,89 @@ int main()
                 {
                     //cout<<__LINE__<<endl;
                     frame = cur_container->getImg();
+                    cout<<cur_container->getTimeCam()<<endl;
                     imshow(capture_index[i], frame);
                 }
             }
         }
     }else{
-        cvMatContainer* cur_container0;
-        cvMatContainer* cur_container1;
-        while(!cam.stream_stopped())
-        {
-            if (cam.frame_queue[1]->try_pop(cur_container1))
-            {
-                cout<<cur_container1->getFrameNum()<<endl;
-            }
+        // create folders to record images
+        struct stat info0;
+        if( stat( folder_name_0, &info0 ) != -1 ){
+            if( S_ISDIR(info0.st_mode) )
+                printf( "%s is a directory\n", folder_name_0 );
         }
+        else{
+            printf( "create the directory %s\n", folder_name_0 );
+            mkdir(folder_name_0, 0700);
+        }
+
+        struct stat info1;
+        if( stat( folder_name_1, &info1 ) != -1 ){
+            if( S_ISDIR(info1.st_mode) )
+                printf( "%s is a directory\n", folder_name_1 );
+        }
+        else{
+            printf( "create the directory %s\n", folder_name_1 );
+            mkdir(folder_name_1, 0700);
+        }
+
+        //some parameters for sync
+        cvMatContainer* curMat0=NULL;
+        cvMatContainer* curMat1=NULL;
+        int curTime0=0;
+        int curTime1=0;
+        
+        // if camera is not stopped or there are still images in the outcomming queue
+        while(!(cam.stream_stopped()) || !(cam.frame_queue[0]->empty()) || !(cam.frame_queue[1]->empty()))
+        {
+            if(curMat0==NULL)
+                cam.frame_queue[0]->try_pop(curMat0);
+            if(curMat1==NULL)
+                cam.frame_queue[1]->try_pop(curMat1);
+            if(curMat0 != NULL && curMat1 != NULL)
+            {
+                curTime0 = curMat0->getTimeCam();
+                curTime1 = curMat1->getTimeCam();
+                 // if both incoming stream's timestamps are less than MAX_DT
+                if( abs(curTime0-curTime1) < MAX_DT)
+                {
+                    sprintf(filename, "%scam0_raw16_%lu.tiff", folder_name_0, frame);
+                    if(curMat0->saveImg(filename))
+                    {
+                        delete curMat0;
+                        curMat0 = NULL;
+                    }
+                    sprintf(filename, "%scam1_raw16_%lu.tiff", folder_name_1, frame);
+                    if(curMat1->saveImg(filename))
+                    {
+                        delete curMat1;
+                        curMat1 = NULL;
+                    }
+                    frame++;
+                }else if(curTime0 < curTime1)
+                {
+                    //cam0 is ahead. Drop frame and wait for cam1
+                    delete curMat0;
+                    curMat0 = NULL;
+                    /*
+                    //debug
+                    cout<<curTime0<<" "<<curTime1<<" "<<abs(curTime0-curTime1)<<endl;
+                    cout<<"At frame "<<frame<<" Cam 0 is dropped"<<endl;
+                    */
+                }
+                else{
+                    delete curMat1;
+                    curMat1 = NULL;
+                    /*
+                    //debug
+                    cout<<curTime0<<" "<<curTime1<<" "<<abs(curTime0-curTime1)<<endl;
+                    cout<<"At frame "<<frame<<" Cam 1 is dropped"<<endl;
+                    */
+                }
+            }
+        }    
     }
     return 0;
 }
+
