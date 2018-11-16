@@ -12,8 +12,8 @@ StereoSync::StereoSync()
     this->ifsave = true;
     this->ifshow = false;
 
-    this->folder_name_0 = "./Cam_0/";
-    this->folder_name_1 = "./Cam_1/";
+    //this->folder_name_0 = "./Cam_0/";
+    //this->folder_name_1 = "./Cam_1/";
 
     this->frame=1;
     Streamer = CameraStreamer(this->camera_port);
@@ -29,8 +29,8 @@ StereoSync::StereoSync(vector<string> camera_port, int CamType, int ImgMode, boo
     this->ifsave = ifRecord;
     this->ifshow = ifShow;
 
-    this->folder_name_0 = "./Cam_0/";
-    this->folder_name_1 = "./Cam_1/";
+    //this->folder_name_0 = "./Cam_0/";
+    //this->folder_name_1 = "./Cam_1/";
 
     this->frame=1;
 
@@ -113,14 +113,14 @@ void StereoSync::showStream()
 }
 
 
-void StereoSync::saveImage()
+void StereoSync::ShowAndStream()
 {
-    while(!(cam.stream_stopped()) || !(cam.frame_queue[0]->empty()) || !(cam.frame_queue[1]->empty()))
+    while(!(Streamer.stream_stopped()) || !(Streamer.frame_queue[0]->empty()) || !(Streamer.frame_queue[1]->empty()))
     {
         if(curMat0==NULL)
-            cam.frame_queue[0]->try_pop(curMat0);
+            Streamer.frame_queue[0]->try_pop(curMat0);
         if(curMat1==NULL)
-            cam.frame_queue[1]->try_pop(curMat1);
+            Streamer.frame_queue[1]->try_pop(curMat1);
         if(curMat0 != NULL && curMat1 != NULL)
         {
             curTime0 = curMat0->getTimeCam();
@@ -128,21 +128,22 @@ void StereoSync::saveImage()
                 // if both incoming stream's timestamps are less than MAX_DT
             if( abs(curTime0-curTime1) < MAX_DT)
             {
-                if(curMat0->getFFCMode()!=3 || curMat1->getFFCMode()!=3)
-                    cout<<"At Frame "<<frame<<" cam1 in "<<curMat0->getFFCMode()<<" cam2 in "<<curMat1->getFFCMode()<<endl;
                 sprintf(filename, "%scam0_raw16_%lu.tiff", folder_name_0, frame);
                 if(curMat0->saveImg(filename))
                 {
+                    imshow(label[0], curMat0->getImg());
                     delete curMat0;
                     curMat0 = NULL;
                 }
                 sprintf(filename, "%scam1_raw16_%lu.tiff", folder_name_1, frame);
                 if(curMat1->saveImg(filename))
                 {
+                    imshow(label[1], curMat1->getImg());
                     delete curMat1;
                     curMat1 = NULL;
                 }
                 frame++;
+                cv::waitKey(30);
 
             }else if(curTime0 < curTime1)
             {
@@ -158,14 +159,14 @@ void StereoSync::saveImage()
     }
 }
 
-void StereoSync::ShowAndStream()
+void StereoSync::saveImage()
 {
-    while(!(cam.stream_stopped()) || !(cam.frame_queue[0]->empty()) || !(cam.frame_queue[1]->empty()))
+    while(!(Streamer.stream_stopped()) || !(Streamer.frame_queue[0]->empty()) || !(Streamer.frame_queue[1]->empty()))
     {
         if(curMat0==NULL)
-            cam.frame_queue[0]->try_pop(curMat0);
+            Streamer.frame_queue[0]->try_pop(curMat0);
         if(curMat1==NULL)
-            cam.frame_queue[1]->try_pop(curMat1);
+            Streamer.frame_queue[1]->try_pop(curMat1);
         if(curMat0 != NULL && curMat1 != NULL)
         {
             curTime0 = curMat0->getTimeCam();
@@ -173,8 +174,6 @@ void StereoSync::ShowAndStream()
                 // if both incoming stream's timestamps are less than MAX_DT
             if( abs(curTime0-curTime1) < MAX_DT)
             {
-                if(curMat0->getFFCMode()!=3 || curMat1->getFFCMode()!=3)
-                    cout<<"At Frame "<<frame<<" cam1 in "<<curMat0->getFFCMode()<<" cam2 in "<<curMat1->getFFCMode()<<endl;
                 sprintf(filename, "%scam0_raw16_%lu.tiff", folder_name_0, frame);
                 if(curMat0->saveImg(filename))
                 {

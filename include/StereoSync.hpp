@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <cmath>
 #define NUM_CAM 2 
+#define MAX_DT 33334
 
 class StereoSync
 {
@@ -48,9 +49,6 @@ class StereoSync
         void showStream();
         void saveImage();
         void ShowAndStream();
-
-
-
 
 };
 
