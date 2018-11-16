@@ -59,6 +59,7 @@ void CameraStreamer::captureFrame(int index)
             perror(RED "VIDIOC_QBUF" WHT);
             exit(1);
         }
+        AGC_Basic_Linear(*thermal16, *thermal16_linear, height, width, camera_frame, camera_clock, FFC_mode);
         if ( this->VideoOutput==RAW16 ) {
             // push image to output queue
             img_frame_list[index]++;
@@ -67,7 +68,6 @@ void CameraStreamer::captureFrame(int index)
             (frame_queue[index])->push(img2queue);
         }else if(this->VideoOutput == RAW16_AGC)
         {
-            AGC_Basic_Linear(*thermal16, *thermal16_linear, height, width, camera_frame, camera_clock, FFC_mode);
             img_frame_list[index]++;
             t_system = clock();
             img2queue = new cvMatContainer(*thermal16_linear, img_frame_list[index], camera_clock, int(t_system), camera_frame, FFC_mode);

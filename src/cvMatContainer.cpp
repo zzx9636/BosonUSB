@@ -7,6 +7,7 @@ cvMatContainer::cvMatContainer(cv::Mat & input, int index, int time_stamp_camera
     this->time_stamp_camera = time_stamp_camera;
     this->time_stamp_buffer = time_stamp_buffer;
     this->frame_camera = frame;
+    this->FFC_mode =FFC_mode;
     this->compression_params.push_back(cv::IMWRITE_PXM_BINARY);
 }
 
@@ -17,6 +18,7 @@ cvMatContainer::cvMatContainer(cv::Mat & input, int index, int time_stamp_camera
     this->time_stamp_camera = time_stamp_camera;
     this->time_stamp_buffer = time_stamp_buffer;
     this->frame_camera = frame;
+    this->FFC_mode =FFC_mode;
     this->compression_params=IMWRITE_PARAM;
 }
         
@@ -27,6 +29,7 @@ cvMatContainer::cvMatContainer(cv::Mat & input)
     this->time_stamp_camera = 0;
     this->time_stamp_buffer = 0;
     this->frame_camera = 0;
+    this->FFC_mode =0;
     this->compression_params.push_back(cv::IMWRITE_PXM_BINARY);
 }
 

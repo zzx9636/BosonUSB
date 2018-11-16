@@ -31,12 +31,12 @@ int main()
     }
 
     //Make an instance of CameraStreamer
-    CameraStreamer cam(capture_index);
+    CameraStreamer cam(capture_index, RAW16_AGC, Boson_640);
 
     if(show_img){
         cvMatContainer* cur_container;
         cv::Mat frame;
-        while(!cam.stream_stopped() && cv::waitKey(20)!=27)
+        while(!cam.stream_stopped() && cv::waitKey(20))
         {
             for (int i = 0; i < capture_index.size(); i++){
                 //Pop frame from queue and check if the frame is valid
@@ -44,8 +44,10 @@ int main()
                 {
                     //cout<<__LINE__<<endl;
                     frame = cur_container->getImg();
-                    cout<<cur_container->getTimeCam()<<endl;
+                    //cout<<cur_container->getTimeCam()<<endl;
                     imshow(capture_index[i], frame);
+                    delete cur_container;
+                    cur_container=NULL;
                 }
             }
         }
@@ -91,6 +93,8 @@ int main()
                  // if both incoming stream's timestamps are less than MAX_DT
                 if( abs(curTime0-curTime1) < MAX_DT)
                 {
+                    if(curMat0->getFFCMode()!=3 || curMat1->getFFCMode()!=3)
+                        cout<<"At Frame "<<frame<<" cam1 in "<<curMat0->getFFCMode()<<" cam2 in "<<curMat1->getFFCMode()<<endl;
                     sprintf(filename, "%scam0_raw16_%lu.tiff", folder_name_0, frame);
                     if(curMat0->saveImg(filename))
                     {
@@ -103,14 +107,17 @@ int main()
                         delete curMat1;
                         curMat1 = NULL;
                     }
+                    
                     frame++;
+
                 }else if(curTime0 < curTime1)
                 {
                     //cam0 is ahead. Drop frame and wait for cam1
                     delete curMat0;
                     curMat0 = NULL;
-                    /*
+                    
                     //debug
+                    /*
                     cout<<curTime0<<" "<<curTime1<<" "<<abs(curTime0-curTime1)<<endl;
                     cout<<"At frame "<<frame<<" Cam 0 is dropped"<<endl;
                     */
@@ -118,8 +125,9 @@ int main()
                 else{
                     delete curMat1;
                     curMat1 = NULL;
-                    /*
+                    
                     //debug
+                    /*
                     cout<<curTime0<<" "<<curTime1<<" "<<abs(curTime0-curTime1)<<endl;
                     cout<<"At frame "<<frame<<" Cam 1 is dropped"<<endl;
                     */
