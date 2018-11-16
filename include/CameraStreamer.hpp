@@ -49,15 +49,25 @@ enum OutputType
 class CameraStreamer{
     public:
         //Constructor for USB Camera capture
+        CameraStreamer();
         CameraStreamer(vector<string> video_port);
         CameraStreamer(vector<string> video_port, int VideoMode, int SensorType);
+
         //Destructor for releasing resource(s)
         ~CameraStreamer();
+
+        void AssignPort(vector<string> video_port);
+        void AssignSensortype(int SensorType);
+        void AssignOuputMode(int VideoMode);
         
         //this holds queue(s) which hold images from each camera
         std::vector<tbb::concurrent_queue<cvMatContainer*>*> frame_queue;
 
         bool stream_stopped();
+
+        //initialize and start the camera capturing process(es)
+        void startMultiCapture();
+
         void AGC_Basic_Linear(cv::Mat input_16, cv::Mat output_8, int height, int width, unsigned int &frame, unsigned int &clock_cam, unsigned int &ffc_status); 
     
     private:
@@ -103,8 +113,7 @@ class CameraStreamer{
 
     private:
 
-        //initialize and start the camera capturing process(es)
-        void startMultiCapture();
+        
         //release all camera capture resource(s)
         void stopMultiCapture();
         //main camera capturing process which will be done by the thread(s)

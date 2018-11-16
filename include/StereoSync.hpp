@@ -18,9 +18,7 @@ class StereoSync
         
         //set parameter
         void setSaveDir(const char * cam1Dir, const char * cam2Dir);
-        void setCamType(int CamType);
-        void setSaveMode(int SaveMode);
-        
+          
         void startSync();
 
 

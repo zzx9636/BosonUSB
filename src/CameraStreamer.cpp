@@ -1,9 +1,13 @@
 #include "CameraStreamer.hpp"
+CameraStreamer::CameraStreamer()
+{
+    this->VideoOutput = RAW16;
+    this->SensorType = Boson_640;
+}
 
 CameraStreamer::CameraStreamer(vector<string> video_port)
 {
     // initilize parameters
-
     this->VideoOutput = RAW16;
     this->SensorType = Boson_640;
     this->camera_ports = video_port;
@@ -11,7 +15,7 @@ CameraStreamer::CameraStreamer(vector<string> video_port)
     cout<<"Total "<<camera_count<<" camera found"<<endl;
     this->compression_params.push_back(cv::IMWRITE_PXM_BINARY);
 
-    startMultiCapture();
+    //startMultiCapture();
 }
 
 
@@ -26,12 +30,28 @@ CameraStreamer::CameraStreamer(vector<string> video_port, int VideoMode=RAW16, i
     cout<<"Total "<<camera_count<<" camera found"<<endl;
     this->compression_params.push_back(cv::IMWRITE_PXM_BINARY);
 
-    startMultiCapture();
+    //startMultiCapture();
 }
  
 CameraStreamer::~CameraStreamer()
 {
     stopMultiCapture();
+}
+
+void CameraStreamer::AssignPort(vector<string> video_port)
+{
+    this->camera_ports = video_port;
+    this->camera_count = this->camera_ports.size();
+}
+
+void CameraStreamer::AssignSensortype(int SensorType)
+{
+    this->SensorType = SensorType;
+}
+
+void CameraStreamer::AssignOuputMode(int VideoMode)
+{
+    this->VideoOutput = VideoMode;
 }
  
 void CameraStreamer::captureFrame(int index)
