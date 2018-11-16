@@ -15,9 +15,9 @@ class cvMatContainer
 {
     public:
         //constructor
-        cvMatContainer(cv::Mat & input, int index, int time_stamp_camera, int time_stamp_buffer, int frame, std::vector<int> IMWRITE_PARAM);
+        cvMatContainer(cv::Mat & input, int index, int time_stamp_camera, int time_stamp_buffer, int frame, int FFC_mode, std::vector<int> IMWRITE_PARAM);
 
-        cvMatContainer(cv::Mat & input, int index, int time_stamp_camera, int time_stamp_buffer, int frame);
+        cvMatContainer(cv::Mat & input, int index, int time_stamp_camera, int time_stamp_buffer, int frame, int FFC_mode);
         
         cvMatContainer(cv::Mat & input);
 
@@ -32,6 +32,8 @@ class cvMatContainer
 
         int getFrameNum() const;
 
+        int getFFCMode() const;
+
         cv::Mat getImg() const;
 
         bool saveImg(string path) const;
@@ -42,6 +44,7 @@ class cvMatContainer
         int frame_camera;
         int time_stamp_camera;
         int time_stamp_buffer;
+        int FFC_mode;
         std::vector<int> compression_params;
 };
 

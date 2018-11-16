@@ -6,32 +6,25 @@ CameraStreamer::CameraStreamer(vector<string> video_port)
 
     this->VideoOutput = RAW16;
     this->SensorType = Boson_640;
-    this->ZoomBool = false;
-    this->RecordBool = true;
     this->camera_ports = video_port;
     this->camera_count = camera_ports.size();
     cout<<"Total "<<camera_count<<" camera found"<<endl;
     this->compression_params.push_back(cv::IMWRITE_PXM_BINARY);
-    this->SaveDir = "./Images";
 
     startMultiCapture();
 }
 
 
-CameraStreamer::CameraStreamer(vector<string> video_port, int VideoMode=RAW16, int SensorType = Boson_640, 
-    bool zoom_enable=false, bool record_enable=true, string folder_name="./Images")
+CameraStreamer::CameraStreamer(vector<string> video_port, int VideoMode=RAW16, int SensorType = Boson_640)
 {
     // initilize parameters
 
     this->VideoOutput = VideoMode;
     this->SensorType = SensorType;
-    this->ZoomBool = zoom_enable;
-    this->RecordBool = record_enable;
     this->camera_ports = video_port;
     this->camera_count = camera_ports.size();
     cout<<"Total "<<camera_count<<" camera found"<<endl;
     this->compression_params.push_back(cv::IMWRITE_PXM_BINARY);
-    this->SaveDir = folder_name;
 
     startMultiCapture();
 }
@@ -45,14 +38,11 @@ void CameraStreamer::captureFrame(int index)
 {
     int * camera_handel_cur = this->camera_handel[index];
     struct v4l2_buffer * bufferinfo = this->bufferPtrList[index];
+    
     cv::Mat* thermal16 = this->thermal16List[index];
     cv::Mat* thermal16_linear = this->thermal16linearList[index];
-    
-    /*
-    cout<<"Started cam_"<<index<<" thread at "<<t<<endl;
-    cout<<"thermal16 "<<thermal16<<endl;
-    cout<<"bufferinfo "<<bufferinfo<<endl;  
-    */
+    cv::Mat* thermal_luma = this->thermal_lumaList[index];
+    cv::Mat* thermal_RGB = this->thermal_RGBList[index];
 
     cvMatContainer* img2queue = NULL;
 
@@ -70,7 +60,18 @@ void CameraStreamer::captureFrame(int index)
             exit(1);
         }
         if ( this->VideoOutput==RAW16 ) {
-			AGC_Basic_Linear(*thermal16, *thermal16_linear, height, width, camera_frame, camera_clock, FFC_mode);
+            // push image to output queue
+            img_frame_list[index]++;
+            t_system = clock();
+            img2queue = new cvMatContainer(*thermal16, img_frame_list[index], camera_clock, int(t_system), camera_frame, FFC_mode);
+            (frame_queue[index])->push(img2queue);
+        }else if(this->VideoOutput == RAW16_AGC)
+        {
+            AGC_Basic_Linear(*thermal16, *thermal16_linear, height, width, camera_frame, camera_clock, FFC_mode);
+            img_frame_list[index]++;
+            t_system = clock();
+            img2queue = new cvMatContainer(*thermal16_linear, img_frame_list[index], camera_clock, int(t_system), camera_frame, FFC_mode);
+            (frame_queue[index])->push(img2queue);
             /*
             //print fps
             int t_prev = last_frame_time_stamp[index];
@@ -79,7 +80,8 @@ void CameraStreamer::captureFrame(int index)
             cout<<"Camera "<<index<<" running at "<<fps<<" fps"<<endl;
             */
 
-            /* show images
+            /* 
+            //show images debug
             cv::imshow(camera_ports[index], *thermal16_linear);
             char key = cv::waitKey(1);
             if( key == 'q' ) { // 0x20 (SPACE) ; need a small delay !! we use this to also add an exit option
@@ -87,25 +89,24 @@ void CameraStreamer::captureFrame(int index)
                 break_out = true;
 		    }
             */
-
-            // push image to output queue
-            if( FFC_mode == 3){
-                img_index_list[index]++;
-                t_system = clock();
-                img2queue = new cvMatContainer(*thermal16, img_index_list[index], camera_clock, int(t_system), camera_frame);
-                (frame_queue[index])->push(img2queue);
-            }
+        }else if(this->VideoOutput == AGC8)
+        {
+            cv::cvtColor(*thermal_luma, *thermal_RGB, cv::COLOR_YUV2RGB_I420, 0 );
+            img_frame_list[index]++;
+            t_system = clock();
+            img2queue = new cvMatContainer(*thermal_RGB, img_frame_list[index], camera_clock, int(t_system), camera_frame, FFC_mode);
+            (frame_queue[index])->push(img2queue);
         }
     }
-    
-
+    //tell the system that image buffer has stopped
+    stream_stop_bool[index]=true;
 }
  
 void CameraStreamer::startMultiCapture()
 {
     // set buffer parameters  
     struct v4l2_format format; 
-    if(this->VideoOutput==RAW16)
+    if(this->VideoOutput==RAW16 || this->VideoOutput == RAW16_AGC)
     {
         printf(WHT ">>> " YEL "16 bits " WHT "capture selected\n");
         // I am requiring thermal 16 bits mode
@@ -130,6 +131,8 @@ void CameraStreamer::startMultiCapture()
         format.fmt.pix.pixelformat = V4L2_PIX_FMT_YVU420; // thermal, works   LUMA, full Cr, full Cb
         width = 640;
         height = 512;
+        luma_height = height+height/2;
+	    luma_width = width;
     }
 
     // Common varibles
@@ -223,14 +226,23 @@ void CameraStreamer::startMultiCapture()
         cv::Mat* thermal16_linear = new cv::Mat(height,width, CV_8U, 1);
         thermal16List.push_back(thermal16);
         thermal16linearList.push_back(thermal16_linear);
-        /*
-        cout<<"cam_"<<i<<endl;
-        cout<<"thermal16 "<<thermal16<<endl;
-        cout<<"bufferinfo "<<bufferinfo<<endl;        
-        */
+
+        // Declarations for 8bits YCbCr mode
+        // Will be used in case we are reading YUV format
+	    // Boson320, 640 :  4:2:0
+        // OpenCV input buffer    
+        cv::Mat* thermal_luma = new cv::Mat(luma_height, luma_width,  CV_8UC1, buffer_start);  
+	    cv::Mat* thermal_rgb = new cv::Mat(height, width, CV_8UC3, 1);
+        thermal_lumaList.push_back(thermal_luma);
+        thermal_RGBList.push_back(thermal_rgb);
+
+        // make default setting for index and 
+        img_frame_list.push_back(0);
+        stream_stop_bool.push_back(false);
+
         cur_handel = NULL;
         bufferinfo =NULL;
-        img_index_list.push_back(0);
+        
     }
 
     for(int i=0; i<camera_count; i++)
@@ -252,6 +264,8 @@ bool CameraStreamer::stream_stopped()
 {
     return this->break_out;
 }
+
+
 void CameraStreamer::stopMultiCapture()
 {
     int *camera_handel_cur;
@@ -264,7 +278,8 @@ void CameraStreamer::stopMultiCapture()
             perror(RED "VIDIOC_STREAMOFF" WHT);
             exit(1);
 	    }
-
+        while(!stream_stop_bool[i])
+            continue;
         close(*camera_handel_cur);
         delete thermal16List[i];
         thermal16List[i]=NULL;

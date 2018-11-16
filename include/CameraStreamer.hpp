@@ -41,68 +41,74 @@ enum SensorType
 enum OutputType
 {
     RAW16 = 1,
-    AGC8 = 2
+    AGC8 = 2,
+    RAW16_AGC =3
 };
 
  
 class CameraStreamer{
-public:
-    //this holds usb camera indices
-    vector<string> camera_ports;
-    //this holds OpenCV VideoCapture pointers
-    vector<cv::VideoCapture*> camera_capture;
-    //this holds queue(s) which hold images from each camera
-    std::vector<tbb::concurrent_queue<cvMatContainer*>*> frame_queue;
-    //this holds thread(s) which run the camera capture process
-    vector<thread*> camera_thread;
+    public:
+        //Constructor for USB Camera capture
+        CameraStreamer(vector<string> video_port);
+        CameraStreamer(vector<string> video_port, int VideoMode, int SensorType);
+        //Destructor for releasing resource(s)
+        ~CameraStreamer();
+        
+        //this holds queue(s) which hold images from each camera
+        std::vector<tbb::concurrent_queue<cvMatContainer*>*> frame_queue;
+
+        bool stream_stopped();
+        void AGC_Basic_Linear(cv::Mat input_16, cv::Mat output_8, int height, int width, unsigned int &frame, unsigned int &clock_cam, unsigned int &ffc_status); 
     
-    //Constructor for USB Camera capture
-    CameraStreamer(vector<string> video_port);
-    CameraStreamer(vector<string> video_port, int VideoMode, int SensorType, bool zoom_enable, bool record_enable, string folder_name);
-    //Destructor for releasing resource(s)
-    ~CameraStreamer();
-    bool stream_stopped();
-    void AGC_Basic_Linear(cv::Mat input_16, cv::Mat output_8, int height, int width, unsigned int &frame, unsigned int &clock_cam, unsigned int &ffc_status); 
- 
-private:
-    int camera_count;
-    int VideoOutput;
-    int SensorType;
-    bool RecordBool;
-    bool ZoomBool;
-    bool break_out = false; // boolean to stop camera
-    
-    //variable used to store image and time_stamp
-    clock_t t_system;
-    vector<int> img_index_list;
-    
-    //folder to save images
-    string SaveDir;
+    private:
 
-    // To record images
-	std::vector<int> compression_params;
+        //this holds usb camera ports
+        vector<string> camera_ports;
+        //this holds thread(s) which run the camera capture process
+        vector<thread*> camera_thread;
+        
+        int camera_count;
+        int VideoOutput;
+        int SensorType;
 
-    //image parameters
-    int width, height;
+        bool break_out = false; // boolean to stop camera
+        std::vector<bool> stream_stop_bool;
+            
+        //camera handel pointers
+        vector<int*> camera_handel;
+        //input image buffer
+        std::vector<void *> buffer_start_list;
+        std::vector<struct v4l2_buffer *> bufferPtrList;
 
-    //camera handel pointers
-    vector<int*> camera_handel;
-    //input image buffer
-    std::vector<void *> buffer_start_list;
-    std::vector<struct v4l2_buffer *> bufferPtrList;
+        //variable used to store image and time_stamp
+        clock_t t_system;
+        vector<int> img_frame_list;
+        
+        // To record images
+        std::vector<int> compression_params;
 
-    //opencv input Buffer
-    std::vector<cv::Mat*> thermal16List;
-    std::vector<cv::Mat*> thermal16linearList;
+        //raw image parameters
+        int width, height;
 
-    //initialize and start the camera capturing process(es)
-    void startMultiCapture();
-    //release all camera capture resource(s)
-    void stopMultiCapture();
-    //main camera capturing process which will be done by the thread(s)
-    void captureFrame(int index);
+        //8bit YCbCr image parameters
+        int luma_height;
+        int luma_width;
 
+        //opencv I/O Buffer
+        std::vector<cv::Mat*> thermal16List;
+        std::vector<cv::Mat*> thermal16linearList;
+        std::vector<cv::Mat*> thermal_lumaList;
+        std::vector<cv::Mat*> thermal_RGBList;
+        
 
+    private:
+
+        //initialize and start the camera capturing process(es)
+        void startMultiCapture();
+        //release all camera capture resource(s)
+        void stopMultiCapture();
+        //main camera capturing process which will be done by the thread(s)
+        void captureFrame(int index);
 };
 
 #endif
