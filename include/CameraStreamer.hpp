@@ -69,7 +69,8 @@ class CameraStreamer{
         void startMultiCapture();
 
         void AGC_Basic_Linear(cv::Mat input_16, cv::Mat output_8, int height, int width, unsigned int &frame, unsigned int &clock_cam, unsigned int &ffc_status); 
-    
+
+        void requestQuit(bool input);
     private:
 
         //this holds usb camera ports
@@ -91,7 +92,6 @@ class CameraStreamer{
         std::vector<struct v4l2_buffer *> bufferPtrList;
 
         //variable used to store image and time_stamp
-        clock_t t_system;
         vector<int> img_frame_list;
         
         // To record images
@@ -110,10 +110,7 @@ class CameraStreamer{
         std::vector<cv::Mat*> thermal_lumaList;
         std::vector<cv::Mat*> thermal_RGBList;
         
-
     private:
-
-        
         //release all camera capture resource(s)
         void stopMultiCapture();
         //main camera capturing process which will be done by the thread(s)

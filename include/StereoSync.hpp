@@ -7,6 +7,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <cmath>
+#include <fstream>
+#include <time.h>
+
 #define NUM_CAM 2 
 #define MAX_DT 33334
 
@@ -48,7 +51,10 @@ class StereoSync
 
         void showStream();
         void saveImage();
-        void ShowAndStream();
+        void SaveAndStream();
+        void setupLog();
+
+        std::ofstream logfile;
 
 };
 

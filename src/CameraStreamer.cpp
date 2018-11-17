@@ -84,13 +84,13 @@ void CameraStreamer::captureFrame(int index)
             // push image to output queue
             img_frame_list[index]++;
             t_system = clock();
-            img2queue = new cvMatContainer(*thermal16, img_frame_list[index], camera_clock, int(t_system), camera_frame, FFC_mode);
+            img2queue = new cvMatContainer(*thermal16, img_frame_list[index], camera_clock, camera_frame, FFC_mode);
             (frame_queue[index])->push(img2queue);
         }else if(this->VideoOutput == RAW16_AGC)
         {
             img_frame_list[index]++;
             t_system = clock();
-            img2queue = new cvMatContainer(*thermal16_linear, img_frame_list[index], camera_clock, int(t_system), camera_frame, FFC_mode);
+            img2queue = new cvMatContainer(*thermal16_linear, img_frame_list[index], camera_clock, camera_frame, FFC_mode);
             (frame_queue[index])->push(img2queue);
             /*
             //print fps
@@ -114,7 +114,7 @@ void CameraStreamer::captureFrame(int index)
             cv::cvtColor(*thermal_luma, *thermal_RGB, cv::COLOR_YUV2RGB_I420, 0 );
             img_frame_list[index]++;
             t_system = clock();
-            img2queue = new cvMatContainer(*thermal_RGB, img_frame_list[index], camera_clock, int(t_system), camera_frame, FFC_mode);
+            img2queue = new cvMatContainer(*thermal_RGB, img_frame_list[index], camera_clock, camera_frame, FFC_mode);
             (frame_queue[index])->push(img2queue);
         }
     }
@@ -122,8 +122,8 @@ void CameraStreamer::captureFrame(int index)
     stream_stop_bool[index]=true;
 }
  
-void CameraStreamer::startMultiCapture()
-{
+void CameraStreamer::startMultiCapture(){
+
     // set buffer parameters  
     struct v4l2_format format; 
     if(this->VideoOutput==RAW16 || this->VideoOutput == RAW16_AGC)
@@ -285,6 +285,10 @@ bool CameraStreamer::stream_stopped()
     return this->break_out;
 }
 
+void CameraStreamer::requestQuit(bool input)
+{
+    this->break_out=input;
+}
 
 void CameraStreamer::stopMultiCapture()
 {

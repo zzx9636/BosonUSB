@@ -47,15 +47,10 @@ ${CMAKE_THREAD_LIBS_INIT}
 -ltbb
 )
 
-add_executable(test1 src/main.cpp)
-target_link_libraries(test1 ${PROJECT_NAME} ${OpenCV_LIBS}
+add_executable(test src/test_run.cpp)
+target_link_libraries(test ${PROJECT_NAME} ${OpenCV_LIBS}
 ${TBB_LIBRARY_RELEASE}
 ${CMAKE_THREAD_LIBS_INIT}
 -ltbb)
 
-add_executable(test2 src/test2.cpp)
-target_link_libraries(test2 ${PROJECT_NAME} ${OpenCV_LIBS}
-${TBB_LIBRARY_RELEASE}
-${CMAKE_THREAD_LIBS_INIT}
--ltbb)
 
